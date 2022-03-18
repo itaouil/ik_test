@@ -63,15 +63,15 @@ matrix_t jacobian(vector_t const &q) {
     auto a2 = M_PI_2 + (q(2) * -1);
 
     // First joint column vector of partial derivatives
-    j.block<2, 1>(0 ,0) = vector_t{{-sin(a0) - sin(a0+a1) - sin(a0+a1+a2)},
-                                                    {cos(a0) + cos(a0+a1) + cos(a0+a1+a2)}};
+    j.block<2, 1>(0 ,0) = vector_t{{cos(a0) + cos(a0+a1) + cos(a0+a1+a2)},
+                                                   {-sin(a0) - sin(a0+a1) - sin(a0+a1+a2)}};
 
     // Second joint column vector of partial derivatives
-    j.block<2, 1>(0 ,1) = vector_t{{-sin(a0+a1) - sin(a0+a1+a2)},
-                                                    {cos(a0+a1) + cos(a0+a1+a2)}};
+    j.block<2, 1>(0 ,1) = vector_t{{cos(a0+a1) + cos(a0+a1+a2)},
+                                                   {-sin(a0+a1) - sin(a0+a1+a2)}};
 
     // Third joint column vector of partial derivatives
-    j.block<2, 1>(0 ,2) = vector_t{{-sin(a0+a1+a2)}, {cos(a0+a1+a2)}};
+    j.block<2, 1>(0 ,2) = vector_t{{cos(a0+a1+a2)}, {-sin(a0+a1+a2)}};
 
     return j;
 }
@@ -131,7 +131,7 @@ vector_t inverse_kinematics(vector_t const &q_start, trafo2d_t const &goal) {
         matrix_t J_inv = svd.matrixV() * svd.singularValues().asDiagonal() * svd.matrixU().transpose();
 
         // Update joint configuration
-        q_output -= J_inv * ee_delta * alpha;
+        q_output += J_inv * ee_delta * alpha;
 
         //TODO: Add angle constraints and other possible soft constraints
         //TODO: Handle angle wrapping
@@ -159,7 +159,7 @@ int main(){
 
     // Goal pose
     trafo2d_t goal = trafo2d_t::Identity();
-    goal.translation()(0) = 0.5;
+    goal.translation()(0) = 0.6;
 
     // Perform IK
     vector_t q_ik = inverse_kinematics(q_start, goal);
