@@ -58,9 +58,9 @@ matrix_t jacobian(vector_t const &q) {
     matrix_t j(2, 3);
 
     // Prepare angles
-    auto a0 = -q(0);
-    auto a1 = -q(1);
-    auto a2 = -q(2);
+    auto a0 = M_PI_2 + (q(0) * -1);
+    auto a1 = M_PI_2 + (q(1) * -1);
+    auto a2 = M_PI_2 + (q(2) * -1);
 
     // First joint column vector of partial derivatives
     j.block<2, 1>(0 ,0) = vector_t{{-sin(a0) - sin(a0+a1) - sin(a0+a1+a2)},
@@ -159,7 +159,7 @@ int main(){
 
     // Goal pose
     trafo2d_t goal = trafo2d_t::Identity();
-    goal.translation()(0) = 1;
+    goal.translation()(0) = 0.5;
 
     // Perform IK
     vector_t q_ik = inverse_kinematics(q_start, goal);

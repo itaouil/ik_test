@@ -36,7 +36,7 @@ if(NOT matplotlib_POPULATED)
 endif()
 include_directories(SYSTEM ${matplotlib_SOURCE_DIR})
 
-# Create executable and link Eigen's exported CMake target
+# Create executable and link libraries against
 add_executable(agile_ik_task src/agile_ik_task.cpp)
 target_link_libraries (agile_ik_task
         PRIVATE
