@@ -1,3 +1,4 @@
+#include <random>
 #include <iostream>
 #include <Eigen/Geometry>
 #include "../matplotlib-cpp/matplotlibcpp.h"
@@ -47,6 +48,30 @@ void plot_q(vector_t const &q_start, vector_t const &q_ik, std::string const &pl
 }
 
 /**
+ * Randomly reset angle configuration
+ * if outside of defined limits.
+ *
+ * @param q
+ * @param delta_sign_x
+ */
+void reset_angles(vector_t &q, bool delta_sign_x) {
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<> dis(0, 1);
+
+    // Angle sign based on goal position in x
+    int sign;
+    if (delta_sign_x)
+        sign = -1;
+    else
+        sign = 1;
+
+    if (q(0) > M_PI_2 || q(0) < -M_PI_2) q(0) = dis(gen) * M_PI_4 * sign;
+    if (q(1) > M_PI_2 || q(1) < -M_PI_2) q(1) = dis(gen) * M_PI_4 * sign;
+    if (q(2) > M_PI_2 || q(2) < -M_PI_2) q(2) = dis(gen) * M_PI_4 * sign;
+}
+
+/**
  * Function computing the Jacobian
  * matrix of a a planar 3-DOF manipulator.
  *
@@ -58,9 +83,9 @@ matrix_t jacobian(vector_t const &q) {
     matrix_t j(2, 3);
 
     // Prepare angles
-    auto a0 = M_PI_2 + (q(0) * -1);
-    auto a1 = M_PI_2 + (q(1) * -1);
-    auto a2 = M_PI_2 + (q(2) * -1);
+    auto a0 = q(0);
+    auto a1 = q(1);
+    auto a2 = q(2);
 
     // First joint column vector of partial derivatives
     j.block<2, 1>(0 ,0) = vector_t{{cos(a0) + cos(a0+a1) + cos(a0+a1+a2)},
@@ -81,7 +106,7 @@ matrix_t jacobian(vector_t const &q) {
  * 3-DOF manipulator with only revolute links.
  *
  * @param q
- * @return
+ * @return EE pose and orientation in 2D
  */
 trafo2d_t forward_kinematics(vector_t const &q) {
     // Check that the joint configuration has the correct size
@@ -123,15 +148,27 @@ vector_t inverse_kinematics(vector_t const &q_start, trafo2d_t const &goal) {
     vector_t ee_delta = goal.translation() - forward_kinematics(q_output).translation();
 
     // Apply Newton-Ralphson method
-    float alpha = 0.9;
+    double alpha = 1;
     int iterations = 0;
     while (ee_delta.norm() > 1e-3 && iterations < 200) {
         // Compute the pseudo inverse of the jacobian at configuration
         Eigen::JacobiSVD<matrix_t> svd(jacobian(q_output), Eigen::ComputeThinV | Eigen::ComputeThinU);
         matrix_t J_inv = svd.matrixV() * svd.singularValues().asDiagonal() * svd.matrixU().transpose();
 
-        // Update joint configuration
-        q_output += J_inv * ee_delta * alpha;
+        // Compute gradient step
+        vector_t gradient_step = J_inv * ee_delta;
+
+        // Compute temporary new q configuration
+        vector_t q_temp = q_output + gradient_step * alpha;
+
+        // If delta not improved take half a step, otherwise take full step
+        if ((goal.translation() - forward_kinematics(q_temp).translation()).norm() > ee_delta.norm())
+            q_output += gradient_step * 0.5;
+        else
+            q_output = q_temp;
+
+        // Reset angles if outside the limits
+        //reset_angles(q_output, ee_delta(0) > 0);
 
         //TODO: Add angle constraints and other possible soft constraints
         //TODO: Handle angle wrapping
@@ -159,7 +196,7 @@ int main(){
 
     // Goal pose
     trafo2d_t goal = trafo2d_t::Identity();
-    goal.translation()(0) = 0.6;
+    goal.translation()(0) = 1;
 
     // Perform IK
     vector_t q_ik = inverse_kinematics(q_start, goal);
